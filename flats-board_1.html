@@ -11,7 +11,7 @@
 /* Wall-mounted iPad board: alert banner / header (clock, sun, moon, water, UV) / three spot cards with go-score / solunar + radar / 3-day outlook / hourly wind strip. Single dark look for an always-on screen. */
 :root{
   --bg:#0a171c; --panel:#0f232a; --line:#1d3a43; --fg:#e4eee9; --dim:#86a3a0;
-  --water:#4fb3bf; --sand:#e0a458; --good:#7cc47f; --warn:#e0b458; --bad:#e2705e;
+  --water:#4fb3bf; --sand:#e0a458; --good:#7cc47f; --warn:#e0b458; --bad:#e2705e; --king:#b994f2;
   --num:"Barlow Condensed","Helvetica Neue",Arial,sans-serif;
   --body:"Barlow","Helvetica Neue",Arial,sans-serif;
   color-scheme:dark;
@@ -24,6 +24,8 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);
 .banner{display:none;border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:17px;font-weight:600}
 .banner.alert{background:var(--bad);color:#1a0b08}
 .banner.storm{background:var(--warn);color:#1f1606}
+.banner.flood{background:var(--water);color:#06191c}
+.banner.king{background:var(--king);color:#170b2a}
 .banner div+div{margin-top:4px;font-weight:500;font-size:15px}
 .top{-webkit-flex-wrap:wrap;flex-wrap:wrap;-webkit-align-items:flex-end;align-items:flex-end;-webkit-justify-content:space-between;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:12px;margin-bottom:14px}
 .clock{font-family:var(--num);font-weight:600;font-size:64px;line-height:1;letter-spacing:.5px;font-variant-numeric:tabular-nums}
@@ -50,6 +52,13 @@ html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);
 .next b{font-weight:600}
 .chips{margin-top:8px;min-height:0}
 .chip{display:inline-block;font-size:13px;padding:3px 9px;border-radius:6px;background:rgba(224,164,88,.14);color:var(--sand);margin:0 6px 6px 0}
+.chip.flood{background:rgba(79,179,191,.16);color:var(--water)}
+.chip.king{background:rgba(185,148,242,.18);color:var(--king)}
+.key{-webkit-align-items:center;align-items:center;margin:-4px 0 14px;font-size:14px;color:var(--dim)}
+.key>*{margin:0 14px 6px 0}
+.key b{color:var(--fg);font-weight:600}
+.kp{display:inline-block;font-family:var(--num);font-size:17px;font-weight:600;padding:1px 9px;border:1.5px solid currentColor;border-radius:8px}
+.kp.flood{color:var(--water)} .kp.king{color:var(--king)}
 canvas{display:block;width:100%;height:120px;margin-top:6px}
 .tides{-webkit-justify-content:space-between;justify-content:space-between;margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
 .tide{text-align:center;-webkit-flex:1;flex:1}
@@ -77,7 +86,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
 .orow .when{font-family:var(--num);font-size:20px;font-variant-numeric:tabular-nums;margin-left:8px;white-space:nowrap}
 .orow .when b{font-weight:600;margin-left:6px}
 .strip-head{font-size:12px;text-transform:uppercase;letter-spacing:1.2px;color:var(--dim);margin:2px 0 8px}
-.strip{overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.strip{margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch;background:var(--panel);border:1px solid var(--line);border-radius:10px}
 .hr{-webkit-flex:1 0 74px;flex:1 0 74px;text-align:center;padding:10px 4px;border-right:1px solid var(--line)}
 .hr:last-child{border-right:0}
 .hr .t{font-size:13px;color:var(--dim)}
@@ -92,6 +101,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
 <body>
 <div class="wrap">
   <div class="banner" id="banner"></div>
+  <div class="banner" id="tidebanner"></div>
 
   <div class="top flex">
     <div>
@@ -106,6 +116,14 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
       <div class="fact"><div class="k">Water vs predicted</div><div class="v" id="surge">--</div></div>
       <div class="fact"><div class="k">UV now · peak</div><div class="v" id="uv">--</div></div>
     </div>
+  </div>
+
+  <div class="key flex wrapx">
+    <span><b>Score</b> rates how fishable a spot is, 0 to 100. It's not a temperature.</span>
+    <span class="kp good">70+ Go</span><span class="kp warn">45–69 Fair</span><span class="kp bad">Under 45 No-go</span>
+    <span>Light wind counts most, then moving water (incoming best), first or last light, and solunar windows. Rain, storms and NWS alerts pull it down.</span>
+    <span class="kp flood">Flood tide</span><span>high enough to push water up into the grass.</span>
+    <span class="kp king">King tide</span><span>the year's biggest highs, near coastal flooding.</span>
   </div>
 
   <div class="flex wrapx cols" id="spots"></div>
@@ -124,8 +142,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
   <div class="strip-head">3-day outlook · best 2-hour window in daylight</div>
   <div class="flex wrapx cols" id="outlook"></div>
 
-  <div class="strip-head">Next 12 hours · Jacksonville Beach (wind mph)</div>
-  <div class="strip flex" id="strip"><div class="hr"><div class="t">Loading…</div></div></div>
+  <div id="strips"></div>
 
   <div class="foot flex"><span id="updated">Loading data…</span><span>NOAA Tides &amp; Currents · National Weather Service · Open-Meteo</span></div>
 </div>
@@ -136,10 +153,11 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
 
   // ---------- Config
   var SPOTS = [
-    {key:"mayport", name:"Mayport",          lat:30.3967, lon:-81.4300, station:"8720218", stationName:"Mayport (Bar Pilots Dock)"},
-    {key:"talbot",  name:"Little Talbot",    lat:30.4560, lon:-81.4060, station:"8720194", stationName:"Little Talbot Island"},
-    {key:"guana",   name:"Guana / Tolomato", lat:30.0200, lon:-81.3300, station:"8720494", stationName:"Tolomato River, ICWW"}
+    {key:"mayport", name:"Mayport",          lat:30.3967, lon:-81.4300, station:"8720218", stationName:"Mayport (Bar Pilots Dock)", flood:5.5, king:6.2},
+    {key:"talbot",  name:"Little Talbot",    lat:30.4560, lon:-81.4060, station:"8720194", stationName:"Little Talbot Island", flood:6.0, king:6.7},
+    {key:"guana",   name:"Guana / Tolomato", lat:30.0200, lon:-81.3300, station:"8720494", stationName:"Tolomato River, ICWW", flood:5.3, king:6.0}
   ];
+  // flood / king = predicted high (ft, MLLW) that counts as a flood tide / king tide at that station. Tune to what you see on the water.
   var HOME = {lat:30.2866, lon:-81.3962};           // Jacksonville Beach
   var FALLBACK_STATION = {id:"8720218", name:"Mayport (fallback)"};
   var NOAA = "https://api.tidesandcurrents.noaa.gov/";
@@ -147,7 +165,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
   var DIRS = ["N","NNE","NE","ENE","E","ESE","SE","SSE","S","SSW","SW","WSW","W","WNW","NW","NNW"];
   var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 
-  var S = {tides:{}, hourly:{}, station:{}, homeHourly:null, alerts:[], solCache:{}};
+  var S = {tides:{}, hourly:{}, station:{}, homeHourly:null, alerts:[], solCache:{}, surge:null};
 
   // ---------- Helpers
   function $(id){ return document.getElementById(id); }
@@ -172,7 +190,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
   function fmtHour(d){ var h=d.getHours(), ap=h<12?"a":"p"; h=h%12; if(h===0) h=12; return h+ap; }
   function ymd(d){ return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate()); }
   function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
-  function dayLabel(d){ var n=new Date(); if(sameDay(d,n)) return "Today"; var t=new Date(n.getTime()+86400000); if(sameDay(d,t)) return "Tomorrow"; return DAYS[d.getDay()]; }
+  function dayLabel(d){ var n=new Date(), w=DAYS[d.getDay()]; if(sameDay(d,n)) return "Today ("+w+")"; var t=new Date(n.getTime()+86400000); if(sameDay(d,t)) return "Tomorrow ("+w+")"; return w; }
   function parseNoaa(t){ var p=t.split(/[- :T]/); return new Date(+p[0], +p[1]-1, +p[2], +(p[3]||0), +(p[4]||0)); }
   function dist(aLat,aLon,bLat,bLon){ var dx=(aLon-bLon)*Math.cos(aLat*Math.PI/180), dy=aLat-bLat; return Math.sqrt(dx*dx+dy*dy)*69; }
   function windClass(mph){ return mph<10?"good":(mph<16?"warn":"bad"); }
@@ -374,7 +392,10 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
       }
       $("t-"+k).innerHTML=html;
       // Lows that land within 90 min of sunrise or sunset in the next 48h
-      var chips="", n=0;
+      var chips="", n=0, fe=tideEvents(k);
+      for(i=0;i<fe.length && i<2;i++){
+        chips+='<span class="chip '+fe[i].lvl+'">'+(fe[i].lvl==="king"?"King":"Flood")+' tide · '+dayLabel(fe[i].t)+' '+fmtTime(fe[i].t)+' · '+fe[i].eff.toFixed(1)+' ft</span>';
+      }
       for(i=0;i<pts.length && n<2;i++){
         var p=pts[i]; if(p.type!=="L" || p.t<now || p.t-now>48*3600000) continue;
         var s=sunTimes(p.t,HOME.lat,HOME.lon);
@@ -497,9 +518,57 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
     b.style.display="none";
   }
 
+  // ---------- Flood / king tides: predicted highs over each spot's threshold in the next 3 days.
+  // Highs within 24h also get the current observed-vs-predicted offset (wind setup), so a high running hot still trips it.
+  function tideEvents(onlyKey){
+    var now=Date.now(), ev=[];
+    for(var s=0;s<SPOTS.length;s++){
+      var spot=SPOTS[s], pts=S.tides[spot.key];
+      if(!pts || (onlyKey && onlyKey!==spot.key)) continue;
+      for(var i=0;i<pts.length;i++){
+        var p=pts[i], dt=p.t-now;
+        if(p.type!=="H" || dt<-3*3600000 || dt>72*3600000) continue;
+        var off=(S.surge!==null && Math.abs(dt)<24*3600000) ? S.surge : 0, eff=p.v+off;
+        var lvl = eff>=spot.king ? "king" : (eff>=spot.flood ? "flood" : null);
+        if(!lvl) continue;
+        var a=null, b=null;                                   // stretch of time the water sits over the flood mark
+        for(var t=p.t.getTime()-4*3600000; t<=p.t.getTime()+4*3600000; t+=5*60000){
+          var h=heightAt(pts,new Date(t)); if(h!==null && h+off>=spot.flood){ if(a===null) a=t; b=t; }
+        }
+        if(b!==null && b<now) continue;                       // already over
+        ev.push({spot:spot, t:p.t, eff:eff, off:off, lvl:lvl, start:a?new Date(a):null, end:b?new Date(b):null});
+      }
+    }
+    ev.sort(function(x,y){ return x.t-y.t; });
+    return ev;
+  }
+  function renderTideBanner(){
+    var b=$("tidebanner"), ev=tideEvents(), now=new Date(), king=false, live=false, lines="", i;
+    if(!ev.length){ b.style.display="none"; return; }
+    for(i=0;i<ev.length;i++){ if(ev[i].lvl==="king") king=true; if(ev[i].start && now>=ev[i].start) live=true; }
+    for(i=0;i<ev.length && i<4;i++){
+      var e=ev[i], on=e.start && now>=e.start;
+      lines+='<div>'+(on?'Now · ':'')+esc(e.spot.name)+': '+(e.lvl==="king"?"king":"flood")+' tide '+e.eff.toFixed(1)+' ft at '+dayLabel(e.t)+' '+fmtTime(e.t)+
+        (e.start?' · grass flooded about '+fmtTime(e.start)+'–'+fmtTime(e.end):'')+'</div>';
+    }
+    if(S.surge!==null && Math.abs(S.surge)>=0.2) lines+='<div>Water is running '+(S.surge>0?'+':'')+S.surge.toFixed(1)+' ft vs predicted; highs in the next 24h include that.</div>';
+    b.className="banner "+(king?"king":"flood");
+    b.innerHTML='<div>'+(king?"King tide":"Flood tide")+(live?" happening now":" in the next 3 days")+'</div>'+lines;
+    b.style.display="block";
+  }
+
   // ---------- Hourly strip
-  function renderStrip(){
-    var p=S.homeHourly, el=$("strip");
+  function buildStrips(){
+    var html="";
+    for(var i=0;i<SPOTS.length;i++){
+      html+='<div class="strip-head">Next 12 hours · '+SPOTS[i].name+' (wind mph)</div>'+
+            '<div class="strip flex" id="strip-'+SPOTS[i].key+'"><div class="hr"><div class="t">Loading…</div></div></div>';
+    }
+    $("strips").innerHTML=html;
+  }
+  function renderStrips(){ for(var i=0;i<SPOTS.length;i++) renderStrip(SPOTS[i].key); }
+  function renderStrip(key){
+    var p=S.hourly[key], el=$("strip-"+key);
     if(!p){ return; }
     var html="", now=Date.now(), c=0;
     for(var i=0;i<p.length && c<12;i++){
@@ -513,7 +582,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
 
   function renderAll(){
     for(var i=0;i<SPOTS.length;i++) renderSpot(SPOTS[i]);
-    renderSolunar(); renderOutlook(); renderBanner(); renderStrip();
+    renderSolunar(); renderOutlook(); renderBanner(); renderTideBanner(); renderStrips();
   }
 
   // ---------- Loaders
@@ -535,12 +604,12 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
   function loadWeather(){
     SPOTS.forEach(function(spot){
       hourlyFor(spot.lat, spot.lon, spot.key, function(err, periods){
-        if(err){ $("w-"+spot.key).innerHTML='<span class="sky">Weather unavailable</span>'; return; }
+        if(err){ $("w-"+spot.key).innerHTML='<span class="sky">Weather unavailable</span>'; $("strip-"+spot.key).innerHTML='<div class="hr"><div class="t">Hourly forecast unavailable</div></div>'; return; }
         S.hourly[spot.key]=periods; renderAll();
       });
     });
     hourlyFor(HOME.lat, HOME.lon, "home", function(err, periods){
-      if(err){ $("strip").innerHTML='<div class="hr"><div class="t">Hourly forecast unavailable</div></div>'; return; }
+      if(err) return;
       S.homeHourly=periods; renderAll();
     });
   }
@@ -567,7 +636,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
         var best=null, bd=1e12;
         for(var i=0;i<pr.predictions.length;i++){ var dd=Math.abs(parseNoaa(pr.predictions[i].t)-ot); if(dd<bd){ bd=dd; best=pr.predictions[i]; } }
         if(!best){ $("surge").textContent="n/a"; return; }
-        var diff=parseFloat(o.v)-parseFloat(best.v), cls=Math.abs(diff)<0.3?"":(diff>0?"rising":"falling");
+        var diff=parseFloat(o.v)-parseFloat(best.v); S.surge=diff; renderTideBanner(); var cls=Math.abs(diff)<0.3?"":(diff>0?"rising":"falling");
         $("surge").innerHTML='<span class="'+cls+'">'+(diff>=0?"+":"")+diff.toFixed(1)+'</span><small> ft '+(diff>=0?"above":"below")+'</small>';
       });
     });
@@ -593,6 +662,7 @@ canvas{display:block;width:100%;height:120px;margin-top:6px}
 
   // ---------- Start
   buildCards();
+  buildStrips();
   tickClock();
   renderSolunar();
   refreshTides();
